@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/draw"
 	"io"
-	"io/ioutil"
 	"runtime"
 
 	"github.com/lazywei/go-opencv/opencv"
@@ -55,13 +54,13 @@ func (df *defacer) Deface(r io.Reader) (image.Image, error) {
 	b := img.Bounds()
 	dst := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(dst, dst.Bounds(), image.Transparent, image.ZP, draw.Src)
-	draw.Draw(dst, dst.Bounds(), img, b.Min, draw.Src)
+	draw.DrawMask(dst, dst.Bounds(), img, b.Min, img, b.Min, draw.Over)
 	for _, rect := range faces {
 		rw := uint(rect.Max.X - rect.Min.X)
 		rh := uint(rect.Max.Y - rect.Min.Y)
-		img = resize.Resize(rw, rh, df.Overlay, resize.Bicubic)
-		b = img.Bounds()
-		draw.DrawMask(dst, rect, img, b.Min, img, b.Min, draw.Over)
+		fi := resize.Resize(rw, rh, df.Overlay, resize.Bicubic)
+		fb := fi.Bounds()
+		draw.DrawMask(dst, rect, fi, fb.Min, fi, fb.Min, draw.Over)
 	}
 	return dst, nil
 }
@@ -69,17 +68,17 @@ func (df *defacer) Deface(r io.Reader) (image.Image, error) {
 // scan reads binary image data from the given reader and scans for
 // faces, returning a slice of rectangles where faces were detected.
 func (df *defacer) scan(src io.Reader) (m image.Image, r []image.Rectangle, err error) {
-	b, err := ioutil.ReadAll(src)
+	img, _, err := image.Decode(src)
 	if err != nil {
 		return nil, nil, err
 	}
-	img := opencv.DecodeImageMem(b)
-	if img == nil {
+	cvimg := opencv.FromImage(img)
+	if cvimg == nil {
 		return nil, nil, errors.New("failed to load source image")
 	}
-	faces := df.HaarCascade.DetectObjects(img)
+	faces := df.HaarCascade.DetectObjects(cvimg)
 	if faces == nil {
-		return img.ToImage(), []image.Rectangle{}, nil
+		return img, []image.Rectangle{}, nil
 	}
 	fr := make([]image.Rectangle, len(faces))
 	for i, rect := range faces {
@@ -88,7 +87,7 @@ func (df *defacer) scan(src io.Reader) (m image.Image, r []image.Rectangle, err 
 			image.Point{rect.X() + rect.Width(), rect.Y() + rect.Height()},
 		}
 	}
-	return img.ToImage(), fr, nil
+	return img, fr, nil
 }
 
 type defacerPool struct {
