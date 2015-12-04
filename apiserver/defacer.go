@@ -6,9 +6,9 @@ import (
 	"image/draw"
 	"io"
 	"runtime"
+	"sync"
 
 	"github.com/lazywei/go-opencv/opencv"
-	"github.com/nfnt/resize"
 
 	"github.com/fiorix/defacer/apiserver/internal"
 )
@@ -16,32 +16,26 @@ import (
 // A Defacer can scan and deface people's faces in images.
 type Defacer interface {
 	// Deface reads binary image bytes from a given reader
-	// and returns a defaced image.
+	// and returns a defaced version of the image.
 	Deface(io.Reader) (image.Image, error)
 }
 
 // NewDefacer creates and initializes a new Defacer.
-func NewDefacer(overlay image.Image) (Defacer, error) {
-	var err error
-	if overlay == nil {
-		overlay, err = internal.DefaultDefaceImage()
-		if err != nil {
-			return nil, err
-		}
-	}
+// If resizer is nil, we create a default one using the default deface image.
+func NewDefacer(resizer ImageResizer) (Defacer, error) {
 	hc, err := internal.DefaultHaarCascade()
 	if err != nil {
 		return nil, err
 	}
 	df := &defacer{
-		Overlay:     overlay,
+		Resizer:     resizer,
 		HaarCascade: hc,
 	}
 	return df, nil
 }
 
 type defacer struct {
-	Overlay     image.Image
+	Resizer     ImageResizer
 	HaarCascade *opencv.HaarCascade
 }
 
@@ -55,13 +49,16 @@ func (df *defacer) Deface(r io.Reader) (image.Image, error) {
 	dst := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(dst, dst.Bounds(), image.Transparent, image.ZP, draw.Src)
 	draw.DrawMask(dst, dst.Bounds(), img, b.Min, img, b.Min, draw.Over)
-	for _, rect := range faces {
-		rw := uint(rect.Max.X - rect.Min.X)
-		rh := uint(rect.Max.Y - rect.Min.Y)
-		fi := resize.Resize(rw, rh, df.Overlay, resize.Bicubic)
-		fb := fi.Bounds()
-		draw.DrawMask(dst, rect, fi, fb.Min, fi, fb.Min, draw.Over)
+	if len(faces) == 1 {
+		df.draw(nil, nil, dst, faces[0])
+		return dst, nil
 	}
+	mu, wg := &sync.Mutex{}, &sync.WaitGroup{}
+	for _, rect := range faces {
+		wg.Add(1)
+		go df.draw(mu, wg, dst, rect)
+	}
+	wg.Wait()
 	return dst, nil
 }
 
@@ -83,11 +80,32 @@ func (df *defacer) scan(src io.Reader) (m image.Image, r []image.Rectangle, err 
 	fr := make([]image.Rectangle, len(faces))
 	for i, rect := range faces {
 		fr[i] = image.Rectangle{
-			image.Point{rect.X(), rect.Y()},
-			image.Point{rect.X() + rect.Width(), rect.Y() + rect.Height()},
+			image.Point{
+				roundDown(rect.X()),
+				roundDown(rect.Y()),
+			},
+			image.Point{
+				roundUp(rect.X() + rect.Width()),
+				roundUp(rect.Y() + rect.Height()),
+			},
 		}
 	}
 	return img, fr, nil
+}
+
+// draw blends the deface image onto dst, of the size of the given rectangle.
+func (df *defacer) draw(mu *sync.Mutex, wg *sync.WaitGroup, dst draw.Image, r image.Rectangle) {
+	size := image.Point{r.Max.X - r.Min.X, r.Max.Y - r.Min.Y}
+	img := df.Resizer.Resize(size)
+	b := img.Bounds()
+	if mu != nil {
+		mu.Lock()
+		defer mu.Unlock()
+	}
+	draw.DrawMask(dst, r, img, b.Min, img, b.Min, draw.Over)
+	if wg != nil {
+		wg.Done()
+	}
 }
 
 type defacerPool struct {
@@ -104,15 +122,14 @@ type defacerResp struct {
 	Error error
 }
 
-// NewDefacerPool creates a pool of Defacers, and
-// implements the Defacer interface.
-func NewDefacerPool(overlay image.Image, nworkers uint) (Defacer, error) {
+// NewDefacerPool creates a pool of Defacers.
+func NewDefacerPool(resizer ImageResizer, workers uint) (Defacer, error) {
 	dp := &defacerPool{
-		Inbox: make(chan *defacerReq, nworkers),
+		Inbox: make(chan *defacerReq, workers),
 	}
 	i := uint(0)
-	for ; i < nworkers; i++ {
-		df, err := NewDefacer(overlay)
+	for ; i < workers; i++ {
+		df, err := NewDefacer(resizer)
 		if err != nil {
 			close(dp.Inbox)
 			return nil, err
@@ -127,6 +144,7 @@ func (dp *defacerPool) Deface(r io.Reader) (image.Image, error) {
 		Reader: r,
 		Resp:   make(chan *defacerResp),
 	}
+	defer close(req.Resp)
 	dp.Inbox <- req
 	resp := <-req.Resp
 	return resp.Image, resp.Error

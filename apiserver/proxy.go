@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"time"
 )
 
 // encoderFunc is an adapter function for image encoders.
@@ -23,10 +22,10 @@ type proxy struct {
 }
 
 // DefacerProxy does magic.
-func DefacerProxy(df Defacer, logger *log.Logger) http.Handler {
+func DefacerProxy(df Defacer, cli *http.Client, logger *log.Logger) http.Handler {
 	return &proxy{
 		Defacer:  df,
-		Client:   &http.Client{Timeout: 15 * time.Second},
+		Client:   cli,
 		ErrorLog: logger,
 	}
 }

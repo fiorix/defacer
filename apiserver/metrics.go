@@ -9,6 +9,15 @@ var defaceCounter = prometheus.NewCounter(
 	},
 )
 
+var defaceImageCache = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "defacer_image_cache",
+		Help: "Total cache activity",
+	},
+	[]string{"counter"},
+)
+
 func init() {
 	prometheus.MustRegister(defaceCounter)
+	prometheus.MustRegister(defaceImageCache)
 }
