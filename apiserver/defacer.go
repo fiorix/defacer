@@ -54,6 +54,7 @@ func (df *defacer) Deface(r io.Reader) (image.Image, error) {
 	}
 	b := img.Bounds()
 	dst := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(dst, dst.Bounds(), image.Transparent, image.ZP, draw.Src)
 	draw.Draw(dst, dst.Bounds(), img, b.Min, draw.Src)
 	for _, rect := range faces {
 		rw := uint(rect.Max.X - rect.Min.X)
