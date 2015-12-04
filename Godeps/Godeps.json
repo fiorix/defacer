@@ -1,0 +1,52 @@
+{
+	"ImportPath": "github.com/fiorix/defacer",
+	"GoVersion": "go1.5.1",
+	"Deps": [
+		{
+			"ImportPath": "github.com/beorn7/perks/quantile",
+			"Rev": "b965b613227fddccbfffe13eae360ed3fa822f8d"
+		},
+		{
+			"ImportPath": "github.com/golang/protobuf/proto",
+			"Rev": "fb5d8f484732ab045605ecc5ab388726a554a5eb"
+		},
+		{
+			"ImportPath": "github.com/lazywei/go-opencv/opencv",
+			"Rev": "60747d253e80b66cfbc5480ef8a9dcd02030215b"
+		},
+		{
+			"ImportPath": "github.com/matttproud/golang_protobuf_extensions/pbutil",
+			"Rev": "d0c3fe89de86839aecf2e0579c40ba3bb336a453"
+		},
+		{
+			"ImportPath": "github.com/nfnt/resize",
+			"Rev": "dc93e1b98c579d90ee2fa15c1fd6dac34f6e7899"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_golang/prometheus",
+			"Comment": "0.7.0-53-g449ccef",
+			"Rev": "449ccefff16c8e2b7229f6be1921ba22f62461fe"
+		},
+		{
+			"ImportPath": "github.com/prometheus/client_model/go",
+			"Comment": "model-0.0.2-12-gfa8ad6f",
+			"Rev": "fa8ad6fec33561be4280a8f0514318c79d7f6cb6"
+		},
+		{
+			"ImportPath": "github.com/prometheus/common/expfmt",
+			"Rev": "4fdc91a58c9d3696b982e8a680f4997403132d44"
+		},
+		{
+			"ImportPath": "github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg",
+			"Rev": "4fdc91a58c9d3696b982e8a680f4997403132d44"
+		},
+		{
+			"ImportPath": "github.com/prometheus/common/model",
+			"Rev": "4fdc91a58c9d3696b982e8a680f4997403132d44"
+		},
+		{
+			"ImportPath": "github.com/prometheus/procfs",
+			"Rev": "406e5b7bfd8201a36e2bb5f7bdae0b03380c2ce8"
+		}
+	]
+}
