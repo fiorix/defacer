@@ -48,16 +48,18 @@ func (df *defacer) Deface(r io.Reader) (image.Image, error) {
 	dst := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(dst, dst.Bounds(), image.Transparent, image.ZP, draw.Src)
 	draw.DrawMask(dst, dst.Bounds(), img, b.Min, img, b.Min, draw.Over)
-	if len(faces) == 1 {
+	switch len(faces) {
+	case 0: // nothing to do
+	case 1:
 		df.draw(nil, nil, dst, faces[0])
-		return dst, nil
+	default:
+		mu, wg := &sync.Mutex{}, &sync.WaitGroup{}
+		for _, rect := range faces {
+			wg.Add(1)
+			go df.draw(mu, wg, dst, rect)
+		}
+		wg.Wait()
 	}
-	mu, wg := &sync.Mutex{}, &sync.WaitGroup{}
-	for _, rect := range faces {
-		wg.Add(1)
-		go df.draw(mu, wg, dst, rect)
-	}
-	wg.Wait()
 	return dst, nil
 }
 
