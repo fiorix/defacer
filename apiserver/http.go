@@ -6,8 +6,9 @@ import (
 	"os"
 	"path"
 
-	"github.com/fiorix/defacer/apiserver/internal"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/fiorix/defacer/apiserver/internal"
 )
 
 // Handler provides the defacer HTTP API. The zero value of Handler
@@ -20,6 +21,8 @@ type Handler struct {
 }
 
 // Register registers the defacer API handlers to the given ServeMux.
+//
+// Endpoints: {prefix}/v1/metrics end {prefix}/v1/deface.
 func (h *Handler) Register(mux *http.ServeMux) error {
 	if h.Prefix == "" {
 		h.Prefix = "/"
