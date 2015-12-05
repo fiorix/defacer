@@ -33,24 +33,24 @@ type imageResizer struct {
 	Inbox chan *imageResizerReq
 }
 
-func (is *imageResizer) Resize(size image.Point) image.Image {
+func (ir *imageResizer) Resize(size image.Point) image.Image {
 	req := &imageResizerReq{
 		Size: size,
 		Resp: make(chan image.Image),
 	}
 	defer close(req.Resp)
-	is.Inbox <- req
+	ir.Inbox <- req
 	return <-req.Resp
 }
 
 type imageResizerBatch map[image.Point][]chan image.Image
 
-func (is *imageResizer) coalesce() {
+func (ir *imageResizer) coalesce() {
 	backoff := 10 * time.Millisecond
 	batch := make(imageResizerBatch)
 	for {
 		select {
-		case req := <-is.Inbox:
+		case req := <-ir.Inbox:
 			batch[req.Size] = append(batch[req.Size], req.Resp)
 			backoff = 10 * time.Millisecond
 		case <-time.After(backoff):
@@ -58,26 +58,26 @@ func (is *imageResizer) coalesce() {
 				backoff *= backoff
 				break
 			}
-			is.dispatch(batch)
+			ir.dispatch(batch)
 			batch = make(imageResizerBatch)
 		}
 	}
 }
 
-func (is *imageResizer) dispatch(batch imageResizerBatch) {
+func (ir *imageResizer) dispatch(batch imageResizerBatch) {
 	for size, resp := range batch {
-		go is.resize(size, resp)
+		go ir.resize(size, resp)
 	}
 	batch = nil
 }
 
-func (is *imageResizer) resize(size image.Point, callers []chan image.Image) {
+func (ir *imageResizer) resize(size image.Point, callers []chan image.Image) {
 	img := defaultImageCache.Get(&size)
 	if img == nil {
 		img = resize.Resize(
 			uint(size.X),
 			uint(size.Y),
-			is.Image,
+			ir.Image,
 			resize.Bicubic,
 		)
 		defaultImageCache.Set(&size, img)
