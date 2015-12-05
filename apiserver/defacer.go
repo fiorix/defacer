@@ -79,6 +79,10 @@ func (df *defacer) scan(src io.Reader) (m image.Image, r []image.Rectangle, err 
 	}
 	fr := make([]image.Rectangle, len(faces))
 	for i, rect := range faces {
+		if rect == nil { // cgo bs?
+			fr = fr[:i]
+			break
+		}
 		fr[i] = image.Rectangle{
 			image.Point{
 				roundDown(rect.X()),
@@ -106,10 +110,12 @@ func (df *defacer) draw(mu *sync.Mutex, wg *sync.WaitGroup, dst draw.Image, r im
 	if wg != nil {
 		wg.Done()
 	}
+	defaceCounter.Inc()
 }
 
 type defacerPool struct {
-	Inbox chan *defacerReq
+	Inbox   chan *defacerReq
+	Resizer ImageResizer
 }
 
 type defacerReq struct {
@@ -125,18 +131,25 @@ type defacerResp struct {
 // NewDefacerPool creates a pool of Defacers.
 func NewDefacerPool(resizer ImageResizer, workers uint) (Defacer, error) {
 	dp := &defacerPool{
-		Inbox: make(chan *defacerReq, workers),
+		Inbox:   make(chan *defacerReq, workers),
+		Resizer: resizer,
 	}
 	i := uint(0)
+	wg := &sync.WaitGroup{}
+	errc := make(chan error, 1)
+	defer close(errc)
 	for ; i < workers; i++ {
-		df, err := NewDefacer(resizer)
-		if err != nil {
-			close(dp.Inbox)
-			return nil, err
-		}
-		go dp.run(df)
+		wg.Add(1)
+		go dp.run(wg, errc)
 	}
-	return dp, nil
+	wg.Wait()
+	select {
+	case err := <-errc:
+		close(dp.Inbox)
+		return nil, err
+	default:
+		return dp, nil
+	}
 }
 
 func (dp *defacerPool) Deface(r io.Reader) (image.Image, error) {
@@ -150,14 +163,23 @@ func (dp *defacerPool) Deface(r io.Reader) (image.Image, error) {
 	return resp.Image, resp.Error
 }
 
-func (dp *defacerPool) run(df Defacer) {
+func (dp *defacerPool) run(wg *sync.WaitGroup, errc chan error) {
 	runtime.LockOSThread()
+	df, err := NewDefacer(dp.Resizer)
+	if err != nil {
+		select {
+		case errc <- err:
+		default:
+		}
+		wg.Done()
+		return
+	}
+	wg.Done()
 	for req := range dp.Inbox {
 		img, err := df.Deface(req.Reader)
 		req.Resp <- &defacerResp{
 			Image: img,
 			Error: err,
 		}
-		defaceCounter.Inc()
 	}
 }
