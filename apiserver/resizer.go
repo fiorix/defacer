@@ -82,7 +82,10 @@ func (is *imageResizer) resize(size image.Point, callers []chan image.Image) {
 		)
 		defaultImageCache.Set(&size, img)
 	}
-	for _, resp := range callers {
+	for n, resp := range callers {
 		resp <- img
+		if n > 0 {
+			defacerImageResizeCoalesceSum.Inc()
+		}
 	}
 }

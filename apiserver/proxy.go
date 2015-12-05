@@ -98,6 +98,7 @@ func (p *proxy) handler(w http.ResponseWriter, r *http.Request) (int, error) {
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
+	w.WriteHeader(http.StatusOK)
 	enc(w, img)
 	return 0, nil
 }

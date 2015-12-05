@@ -111,7 +111,7 @@ func (df *defacer) draw(mu *sync.Mutex, wg *sync.WaitGroup, dst draw.Image, r im
 	if wg != nil {
 		wg.Done()
 	}
-	defaceCounter.Inc()
+	defacerImageDefaceSum.Inc()
 }
 
 type defacerPool struct {

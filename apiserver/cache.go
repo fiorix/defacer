@@ -28,10 +28,11 @@ func (ic *imageCache) Get(size *image.Point) image.Image {
 	defer ic.Unlock()
 	item := ic.m[*size]
 	if item == nil {
+		defacerImageCacheMissSum.Inc()
 		return nil
 	}
 	item.Time = time.Now()
-	defaceImageCache.WithLabelValues("hits").Inc()
+	defacerImageCacheHitsSum.Inc()
 	return item.Image
 }
 
@@ -39,7 +40,7 @@ func (ic *imageCache) Set(size *image.Point, m image.Image) {
 	ic.Lock()
 	ic.m[*size] = &imageCacheItem{Time: time.Now(), Image: m}
 	ic.Unlock()
-	defaceImageCache.WithLabelValues("items").Inc()
+	defacerImageCacheItemsCount.Inc()
 }
 
 // flush runs every 5s to evict items that are inactive for up to 5min.
@@ -49,6 +50,7 @@ func (ic *imageCache) flush() {
 		for k, v := range ic.m {
 			if time.Since(v.Time) > 5*time.Minute {
 				delete(ic.m, k)
+				defacerImageCacheItemsCount.Dec()
 			}
 		}
 		ic.Unlock()
