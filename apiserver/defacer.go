@@ -21,7 +21,6 @@ type Defacer interface {
 }
 
 // NewDefacer creates and initializes a new Defacer.
-// If resizer is nil, we create a default one using the default deface image.
 func NewDefacer(resizer ImageResizer) (Defacer, error) {
 	hc, err := internal.DefaultHaarCascade()
 	if err != nil {
