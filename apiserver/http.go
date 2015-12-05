@@ -16,15 +16,19 @@ type Handler struct {
 	Prefix    string // default: "/"
 	ImageFile string // default: internal deface image
 	Workers   uint   // default: 100
+	Client    *http.Client
 }
 
 // Register registers the defacer API handlers to the given ServeMux.
-func (h *Handler) Register(mux *http.ServeMux, cli *http.Client) error {
+func (h *Handler) Register(mux *http.ServeMux) error {
 	if h.Prefix == "" {
 		h.Prefix = "/"
 	}
 	if h.Workers == 0 {
 		h.Workers = 100
+	}
+	if h.Client == nil {
+		h.Client = &http.Client{}
 	}
 	df, err := h.newDefacer()
 	if err != nil {
@@ -32,7 +36,7 @@ func (h *Handler) Register(mux *http.ServeMux, cli *http.Client) error {
 	}
 	p := path.Clean(path.Join(h.Prefix, "v1"))
 	mux.Handle(p+"/metrics", prometheus.Handler())
-	proxy := DefacerProxy(df, cli, nil)
+	proxy := DefacerProxy(df, h.Client, nil)
 	mux.Handle(p+"/deface", prometheus.InstrumentHandler("deface", proxy))
 	return nil
 }

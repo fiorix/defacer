@@ -20,10 +20,10 @@ func main() {
 		Prefix:    *apiPrefix,
 		Workers:   *nworkers,
 		ImageFile: *defaceImage,
+		Client:    &http.Client{Timeout: *timeout},
 	}
-	cli := &http.Client{Timeout: *timeout}
 	log.Println("Starting workers, please wait...")
-	if err := handler.Register(http.DefaultServeMux, cli); err != nil {
+	if err := handler.Register(http.DefaultServeMux); err != nil {
 		log.Fatal(err)
 	}
 	srv := &http.Server{
