@@ -34,6 +34,7 @@ func NewDefacer(resizer ImageResizer) (Defacer, error) {
 }
 
 type defacer struct {
+	sync.Mutex
 	Resizer     ImageResizer
 	HaarCascade *opencv.HaarCascade
 }
@@ -70,6 +71,8 @@ func (df *defacer) scan(src io.Reader) (m image.Image, r []image.Rectangle, err 
 	if err != nil {
 		return nil, nil, err
 	}
+	df.Lock()
+	defer df.Unlock()
 	cvimg := opencv.FromImage(img)
 	if cvimg == nil {
 		return nil, nil, errors.New("failed to load source image")
@@ -80,18 +83,15 @@ func (df *defacer) scan(src io.Reader) (m image.Image, r []image.Rectangle, err 
 	}
 	fr := make([]image.Rectangle, len(faces))
 	for i, rect := range faces {
-		if rect == nil { // cgo bs?
-			fr = fr[:i]
-			break
-		}
+		x, y, w, h := rect.X(), rect.Y(), rect.Width(), rect.Height()
 		fr[i] = image.Rectangle{
 			image.Point{
-				roundDown(rect.X()),
-				roundDown(rect.Y()),
+				roundDown(x),
+				roundDown(y),
 			},
 			image.Point{
-				roundUp(rect.X() + rect.Width()),
-				roundUp(rect.Y() + rect.Height()),
+				roundUp(x + w),
+				roundUp(y + h),
 			},
 		}
 	}
